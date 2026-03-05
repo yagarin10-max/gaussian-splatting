@@ -49,7 +49,7 @@ def render_set(model_path, name, iteration, views, gaussians, pipeline, backgrou
             rendering = rendering[..., rendering.shape[-1] // 2:]
             gt = gt[..., gt.shape[-1] // 2:]
             depth = depth[..., depth.shape[-1] // 2:]
-        original_name = view.image_name
+        original_name = os.path.splitext(view.image_name)[0]
         torchvision.utils.save_image(rendering, os.path.join(render_path, f"{original_name}.png"))
         torchvision.utils.save_image(gt, os.path.join(gts_path, f"{original_name}.png"))
         depth_np = depth.squeeze(0).cpu().numpy() 
