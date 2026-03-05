@@ -12,6 +12,8 @@
 import torch
 from scene import Scene
 import os
+import numpy as np
+from PIL import Image
 from tqdm import tqdm
 from os import makedirs
 from gaussian_renderer import render
@@ -30,20 +32,40 @@ except:
 def render_set(model_path, name, iteration, views, gaussians, pipeline, background, train_test_exp, separate_sh):
     render_path = os.path.join(model_path, name, "ours_{}".format(iteration), "renders")
     gts_path = os.path.join(model_path, name, "ours_{}".format(iteration), "gt")
-
+    depth_npy_path = os.path.join(model_path, name, "ours_{}".format(iteration), "depth_npy")
+    depth_png_path = os.path.join(model_path, name, "ours_{}".format(iteration), "depth_png")
     makedirs(render_path, exist_ok=True)
     makedirs(gts_path, exist_ok=True)
+    makedirs(depth_npy_path, exist_ok=True)
+    makedirs(depth_png_path, exist_ok=True)
 
     for idx, view in enumerate(tqdm(views, desc="Rendering progress")):
-        rendering = render(view, gaussians, pipeline, background, use_trained_exp=train_test_exp, separate_sh=separate_sh)["render"]
+        render_pkg = render(view, gaussians, pipeline, background, use_trained_exp=train_test_exp, separate_sh=separate_sh)
+        rendering = render_pkg["render"]
+        depth = render_pkg["depth"]
         gt = view.original_image[0:3, :, :]
 
         if args.train_test_exp:
             rendering = rendering[..., rendering.shape[-1] // 2:]
             gt = gt[..., gt.shape[-1] // 2:]
+            depth = depth[..., depth.shape[-1] // 2:]
 
         torchvision.utils.save_image(rendering, os.path.join(render_path, '{0:05d}'.format(idx) + ".png"))
         torchvision.utils.save_image(gt, os.path.join(gts_path, '{0:05d}'.format(idx) + ".png"))
+        depth_np = depth.squeeze(0).cpu().numpy() 
+        # 4. Save EXACT depth as .npy
+        np.save(os.path.join(depth_npy_path, '{0:05d}'.format(idx) + ".npy"), depth_np)
+        # 5. Normalize depth for PNG visualization
+        depth_min = depth_np.min()
+        depth_max = depth_np.max()
+        # Calculate range and introduce epsilon within the normalization flow
+        # to guarantee we can handle any depth range without division by zero
+        depth_range = depth_max - depth_min
+        epsilon = 1e-6
+        depth_range = np.maximum(depth_range, epsilon)
+        depth_norm = (depth_np - depth_min) / depth_range
+        depth_png_array = (depth_norm * 255).astype(np.uint8)
+        Image.fromarray(depth_png_array).save(os.path.join(depth_png_path, '{0:05d}'.format(idx) + ".png"))
 
 def render_sets(dataset : ModelParams, iteration : int, pipeline : PipelineParams, skip_train : bool, skip_test : bool, separate_sh: bool):
     with torch.no_grad():
