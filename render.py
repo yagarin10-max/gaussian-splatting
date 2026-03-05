@@ -49,12 +49,12 @@ def render_set(model_path, name, iteration, views, gaussians, pipeline, backgrou
             rendering = rendering[..., rendering.shape[-1] // 2:]
             gt = gt[..., gt.shape[-1] // 2:]
             depth = depth[..., depth.shape[-1] // 2:]
-
-        torchvision.utils.save_image(rendering, os.path.join(render_path, '{0:05d}'.format(idx) + ".png"))
-        torchvision.utils.save_image(gt, os.path.join(gts_path, '{0:05d}'.format(idx) + ".png"))
+        original_name = view.image_name
+        torchvision.utils.save_image(rendering, os.path.join(render_path, f"{original_name}.png"))
+        torchvision.utils.save_image(gt, os.path.join(gts_path, f"{original_name}.png"))
         depth_np = depth.squeeze(0).cpu().numpy() 
         # 4. Save EXACT depth as .npy
-        np.save(os.path.join(depth_npy_path, '{0:05d}'.format(idx) + ".npy"), depth_np)
+        np.save(os.path.join(depth_npy_path, f"{original_name}.npy"), depth_np)
         # 5. Normalize depth for PNG visualization
         depth_min = depth_np.min()
         depth_max = depth_np.max()
@@ -65,7 +65,7 @@ def render_set(model_path, name, iteration, views, gaussians, pipeline, backgrou
         depth_range = np.maximum(depth_range, epsilon)
         depth_norm = (depth_np - depth_min) / depth_range
         depth_png_array = (depth_norm * 255).astype(np.uint8)
-        Image.fromarray(depth_png_array).save(os.path.join(depth_png_path, '{0:05d}'.format(idx) + ".png"))
+        Image.fromarray(depth_png_array).save(os.path.join(depth_png_path, f"{original_name}.png"))
 
 def render_sets(dataset : ModelParams, iteration : int, pipeline : PipelineParams, skip_train : bool, skip_test : bool, separate_sh: bool):
     with torch.no_grad():
